@@ -148,6 +148,8 @@ def _format_flights(
 
     # Footer: Google Flights link + note
     lines.append(f"[🔍 Xem thêm trên Google Flights]({gf_link})")
+    lines.append("")
+    lines.append("⚠️ _Giá trên chưa bao gồm thuế, phí. Giá thực tế có thể cao hơn 10-20%._")
 
     return "\n".join(lines)
 

@@ -1,12 +1,3 @@
----
-title: Tara Bot
-emoji: ✈️
-colorFrom: purple
-colorTo: blue
-sdk: docker
-pinned: false
----
-
 # TARA BOT 🤖✈️🛒
 
 **AI agent cá nhân trên Telegram — săn vé máy bay, so sánh giá, cào deal.**
