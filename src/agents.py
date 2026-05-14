@@ -1,4 +1,4 @@
-"""Gemini agent with tool-calling for flight search and Google Search grounding."""
+"""Gemini agent with tool-calling for flight search and shopping search."""
 
 from __future__ import annotations
 
@@ -10,6 +10,7 @@ from google.genai import types
 
 from .config import Config
 from .tools.serpapi import search_flights
+from .tools.shopping import search_shopping
 
 log = logging.getLogger("tara-bot.agent")
 
@@ -20,12 +21,10 @@ SYSTEM_PROMPT = f"""Bạn là Tara Bot — một agent thông minh chuyên tìm 
 NGUYÊN TẮC:
 - Trả lời bằng tiếng Việt tự nhiên, thân thiện.
 - Khi user hỏi vé máy bay, hãy gọi hàm search_flights.
-- Khi user hỏi giá sản phẩm / so sánh giá / mua hàng, hãy dùng Google Search để tìm kiếm giá trực tiếp.
-  + Hiển thị kết quả gọn gàng: tên sản phẩm, giá, nguồn bán, link nếu có.
-  + So sánh giá giữa các nguồn khác nhau.
-- Sau khi hàm search_flights trả kết quả, chuyển tiếp NGUYÊN VĂN kết quả đó cho user, chỉ thêm 1-2 câu ngắn ở đầu hoặc cuối.
-- KHÔNG reformat lại kết quả từ search_flights — giữ nguyên định dạng.
-- Có thể nói chuyện thông thường (chào hỏi, tạm biệt) — không cần gọi hàm hay search.
+- Khi user hỏi giá sản phẩm / so sánh giá / mua hàng, hãy gọi hàm search_shopping.
+- Sau khi hàm trả kết quả, chuyển tiếp NGUYÊN VĂN kết quả đó cho user, chỉ thêm 1-2 câu ngắn ở đầu hoặc cuối.
+- KHÔNG reformat lại kết quả từ hàm — giữ nguyên định dạng.
+- Có thể nói chuyện thông thường (chào hỏi, tạm biệt) — không cần gọi hàm.
 
 Hôm nay là {TODAY.strftime("%A, %d/%m/%Y")} — ĐÂY LÀ MỐC THỜI GIAN HIỆN TẠI.
 Mặc định cho các câu hỏi mơ hồ về thời gian:
@@ -42,12 +41,12 @@ class Agent:
 
         self.client = genai.Client(api_key=api_key)
 
-        # Tools: SerpAPI flight search + Google Search grounding (for shopping/general)
+        # Both are custom functions — no conflict with built-in tools
         self.config = types.GenerateContentConfig(
             system_instruction=SYSTEM_PROMPT,
             tools=[
-                search_flights,              # Custom function → SerpAPI flights
-                {"google_search": {}},       # Built-in Google Search grounding (free)
+                search_flights,    # SerpAPI flights (structured data)
+                search_shopping,   # Gemini Search Grounding (free)
             ],
         )
 
