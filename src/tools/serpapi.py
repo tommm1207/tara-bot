@@ -37,29 +37,31 @@ def search_flights(
         departure_id: IATA code (e.g. SGN, HAN, DAD)
         arrival_id: IATA code of destination
         outbound_date: YYYY-MM-DD, defaults to next Friday
-        return_date: YYYY-MM-DD, defaults to outbound + 5 days
+        return_date: YYYY-MM-DD for return trip. If not provided, search one-way only.
         adults: number of passengers
         currency: VND, USD, etc.
 
     Returns:
-        Formatted string with best options + affiliate link
+        Formatted string with best options
     """
     key = Config.serpapi_key
     outbound = outbound_date or _get_next_friday()
-    ret = return_date or (
-        date.fromisoformat(outbound) + timedelta(days=5)
-    ).isoformat()
 
     params: dict[str, Any] = {
         "engine": "google_flights",
         "departure_id": departure_id,
         "arrival_id": arrival_id,
         "outbound_date": outbound,
-        "return_date": ret,
         "adults": adults,
         "currency": currency,
         "api_key": key,
+        "type": "2",  # 1=round trip, 2=one-way
     }
+
+    # Only add return_date if user explicitly asked for round trip
+    if return_date:
+        params["return_date"] = return_date
+        params["type"] = "1"  # round trip
 
     try:
         resp = httpx.get(SERPAPI_BASE, params=params, timeout=15)
@@ -68,11 +70,13 @@ def search_flights(
     except Exception as e:
         return f"⚠️ Lỗi search flight: {e}"
 
-    return _format_flights(data, departure_id, arrival_id, outbound, ret)
+    trip_type = "khứ hồi" if return_date else "một chiều"
+    return _format_flights(data, departure_id, arrival_id, outbound, return_date, trip_type)
+
 
 
 def _format_flights(
-    data: dict, dep: str, arr: str, out: str, ret: str
+    data: dict, dep: str, arr: str, out: str, ret: str | None = None, trip_type: str = "một chiều"
 ) -> str:
     """Format flight results into compact, beautiful Telegram message."""
     best = data.get("best_flights", [])
@@ -91,8 +95,11 @@ def _format_flights(
     arr_name = city_map.get(arr, arr)
 
     # Emoji for header
-    lines = [f"✈️ *{dep_name} → {arr_name}*"]
-    lines.append(f"📅 *{out}* → *{ret}* ({len(all_flights)} chuyến)")
+    lines = [f"✈️ *{dep_name} → {arr_name}* ({trip_type})"]
+    if ret:
+        lines.append(f"📅 *{out}* → *{ret}* ({len(all_flights)} chuyến)")
+    else:
+        lines.append(f"📅 *{out}* ({len(all_flights)} chuyến)")
     lines.append("")
 
     # Google Flights search link

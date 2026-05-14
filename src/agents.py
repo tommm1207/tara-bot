@@ -40,9 +40,9 @@ class Agent:
             
         genai.configure(api_key=api_key)
         
-        # Use gemini-1.5-flash for free tier & speed
+        # Use gemini-3-flash-preview - latest Gemini 3
         self.model = genai.GenerativeModel(
-            model_name='gemini-1.5-flash',
+            model_name='gemini-3-flash-preview',
             tools=[search_flights, search_shopping],
             system_instruction=SYSTEM_PROMPT
         )
