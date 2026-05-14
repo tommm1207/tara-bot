@@ -93,11 +93,7 @@ async def handle_message(update: Update, _context) -> None:
         agent = get_agent(uid)
         reply = agent.chat(text)
 
-        # Try Markdown first, fallback to plain text if parsing fails
-        try:
-            await update.message.reply_text(reply, parse_mode="Markdown")
-        except Exception:
-            await update.message.reply_text(reply)
+        await update.message.reply_text(reply, parse_mode="Markdown")
     except Exception as e:
         log.exception("Error processing message")
         await update.message.reply_text(
