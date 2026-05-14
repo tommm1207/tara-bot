@@ -1,10 +1,13 @@
 FROM python:3.12-slim
 
 WORKDIR /app
-COPY pyproject.toml .
-RUN pip install --no-cache-dir .
 
+# Copy all source files first
+COPY pyproject.toml .
 COPY src/ src/
+
+# Install dependencies
+RUN pip install --no-cache-dir .
 
 # Hugging Face Spaces uses port 7860
 ENV PORT=7860
