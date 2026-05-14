@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
-"""Tara Bot — Telegram bot entry point with Webhook support for Render."""
+"""Tara Bot — Telegram bot entry point."""
 
 from __future__ import annotations
 
+import asyncio
 import logging
-import os
 import threading
+from datetime import datetime
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
 from telegram import Update
@@ -121,10 +122,10 @@ async def uptime(update: Update, _context) -> None:
     )
 
 
-# ── Health check HTTP server (for Polling mode) ──────────────────────
+# ── Health check HTTP server (for Fly.io) ─────────────────────────────
 
 class HealthHandler(BaseHTTPRequestHandler):
-    """Minimal health endpoint."""
+    """Minimal health endpoint so Fly.io doesn't kill the machine."""
 
     def do_GET(self) -> None:
         self.send_response(200)
@@ -135,9 +136,9 @@ class HealthHandler(BaseHTTPRequestHandler):
         pass  # silence log spam
 
 
-def run_health_server(port: int) -> None:
-    server = HTTPServer(("0.0.0.0", port), HealthHandler)
-    log.info(f"Health server listening on :{port}")
+def run_health_server() -> None:
+    server = HTTPServer(("0.0.0.0", 8080), HealthHandler)
+    log.info("Health server listening on :8080")
     server.serve_forever()
 
 
@@ -148,6 +149,10 @@ def main() -> None:
     if not token:
         raise SystemExit("TELEGRAM_TOKEN not set")
 
+    # Start health server in background thread for Fly.io
+    t = threading.Thread(target=run_health_server, daemon=True)
+    t.start()
+
     app = Application.builder().token(token).build()
 
     app.add_handler(CommandHandler("start", start))
@@ -157,26 +162,8 @@ def main() -> None:
         MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message)
     )
 
-    # Render detection
-    port = int(os.environ.get("PORT", "8080"))
-    url = os.environ.get("RENDER_EXTERNAL_URL")
-
-    if url:
-        # Webhook mode for Render
-        log.info(f"🚀 Starting Webhook on {url}:{port}")
-        app.run_webhook(
-            listen="0.0.0.0",
-            port=port,
-            url_path=token,
-            webhook_url=f"{url}/{token}",
-        )
-    else:
-        # Polling mode for Local/Fly.io
-        log.info("🚀 Starting Polling mode")
-        # Start health server in background thread for health checks
-        t = threading.Thread(target=run_health_server, args=(port,), daemon=True)
-        t.start()
-        app.run_polling(allowed_updates=Update.ALL_TYPES)
+    log.info("🚀 Tara Bot started")
+    app.run_polling(allowed_updates=Update.ALL_TYPES)
 
 
 if __name__ == "__main__":
