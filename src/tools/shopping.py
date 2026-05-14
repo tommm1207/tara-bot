@@ -3,11 +3,10 @@
 from __future__ import annotations
 
 import logging
+import os
 
 from google import genai
 from google.genai import types
-
-from ..config import Config
 
 log = logging.getLogger("tara-bot.shopping")
 
@@ -21,7 +20,14 @@ def search_shopping(query: str) -> str:
     Returns:
         Formatted product listing with prices and sources
     """
-    api_key = Config.gemini_api_key
+    # Get API key directly from env to avoid any import issues
+    api_key = os.environ.get("GEMINI_API_KEY", "")
+    if not api_key:
+        log.error("GEMINI_API_KEY not found in environment")
+        return "⚠️ Không thể tìm kiếm: thiếu API key."
+
+    log.info(f"search_shopping called with query: {query}")
+
     client = genai.Client(api_key=api_key)
 
     prompt = f"""Tìm giá sản phẩm "{query}" tại thị trường Việt Nam.
@@ -32,9 +38,11 @@ Yêu cầu:
 - Sắp xếp từ rẻ nhất đến đắt nhất
 - Ghi chú khuyến mãi nếu có
 - Dùng emoji cho dễ đọc
-- Cuối cùng đưa ra nhận xét ngắn gọn nên mua ở đâu"""
+- Cuối cùng đưa ra nhận xét ngắn gọn nên mua ở đâu
+- KHÔNG dùng markdown formatting (không dùng *, **, _, [])"""
 
     try:
+        log.info("Calling Gemini with google_search grounding...")
         response = client.models.generate_content(
             model="gemini-2.5-flash",
             contents=prompt,
@@ -42,7 +50,9 @@ Yêu cầu:
                 tools=[{"google_search": {}}],
             ),
         )
-        return response.text or "Không tìm thấy kết quả."
+        result = response.text or "Không tìm thấy kết quả."
+        log.info(f"search_shopping result length: {len(result)}")
+        return result
     except Exception as e:
-        log.exception("Error in shopping search")
+        log.exception(f"Error in shopping search: {e}")
         return f"⚠️ Lỗi tìm kiếm giá: {e}"
