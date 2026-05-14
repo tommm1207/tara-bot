@@ -1,16 +1,15 @@
-"""Gemini agent with tool-calling for flight and shopping search."""
+"""Gemini agent with tool-calling for flight search and Google Search grounding."""
 
 from __future__ import annotations
 
 import logging
 from datetime import date
-from typing import Any
 
-import google.generativeai as genai
-from google.generativeai.types import RequestOptions
+from google import genai
+from google.genai import types
 
 from .config import Config
-from .tools.serpapi import search_flights, search_shopping
+from .tools.serpapi import search_flights
 
 log = logging.getLogger("tara-bot.agent")
 
@@ -21,10 +20,12 @@ SYSTEM_PROMPT = f"""Bạn là Tara Bot — một agent thông minh chuyên tìm 
 NGUYÊN TẮC:
 - Trả lời bằng tiếng Việt tự nhiên, thân thiện.
 - Khi user hỏi vé máy bay, hãy gọi hàm search_flights.
-- Khi user hỏi giá sản phẩm, hãy gọi hàm search_shopping.
-- Sau khi hàm trả kết quả, chuyển tiếp NGUYÊN VĂN kết quả đó cho user, chỉ thêm 1-2 câu ngắn ở đầu hoặc cuối.
-- KHÔNG reformat lại kết quả từ hàm — giữ nguyên định dạng.
-- Có thể nói chuyện thông thường (chào hỏi, tạm biệt) — không cần gọi hàm.
+- Khi user hỏi giá sản phẩm / so sánh giá / mua hàng, hãy dùng Google Search để tìm kiếm giá trực tiếp.
+  + Hiển thị kết quả gọn gàng: tên sản phẩm, giá, nguồn bán, link nếu có.
+  + So sánh giá giữa các nguồn khác nhau.
+- Sau khi hàm search_flights trả kết quả, chuyển tiếp NGUYÊN VĂN kết quả đó cho user, chỉ thêm 1-2 câu ngắn ở đầu hoặc cuối.
+- KHÔNG reformat lại kết quả từ search_flights — giữ nguyên định dạng.
+- Có thể nói chuyện thông thường (chào hỏi, tạm biệt) — không cần gọi hàm hay search.
 
 Hôm nay là {TODAY.strftime("%A, %d/%m/%Y")} — ĐÂY LÀ MỐC THỜI GIAN HIỆN TẠI.
 Mặc định cho các câu hỏi mơ hồ về thời gian:
@@ -32,30 +33,33 @@ Mặc định cho các câu hỏi mơ hồ về thời gian:
 - "tuần sau" → tuần tiếp theo
 - Nếu không rõ, lấy ngày đi và ngày về hợp lý."""
 
+
 class Agent:
     def __init__(self):
-        api_key = Config.gemini_api_key or Config.anthropic_api_key # Fallback if user mislabelled
+        api_key = Config.gemini_api_key
         if not api_key or "(tôi sẽ cung cấp sau)" in api_key:
             raise ValueError("GEMINI_API_KEY is not set. Please update your .env file.")
-            
-        genai.configure(api_key=api_key)
-        
-        # Use gemini-3-flash-preview - latest Gemini 3
-        self.model = genai.GenerativeModel(
-            model_name='gemini-3-flash-preview',
-            tools=[search_flights, search_shopping],
-            system_instruction=SYSTEM_PROMPT
+
+        self.client = genai.Client(api_key=api_key)
+
+        # Tools: SerpAPI flight search + Google Search grounding (for shopping/general)
+        self.config = types.GenerateContentConfig(
+            system_instruction=SYSTEM_PROMPT,
+            tools=[
+                search_flights,              # Custom function → SerpAPI flights
+                {"google_search": {}},       # Built-in Google Search grounding (free)
+            ],
         )
-        self.chat_session = self.model.start_chat(enable_automatic_function_calling=True)
+
+        self.chat_session = self.client.chats.create(
+            model="gemini-2.5-flash",
+            config=self.config,
+        )
 
     def chat(self, user_message: str) -> str:
         """Send user message, handle tools automatically, return response."""
         try:
-            # We use a timeout to avoid hanging
-            response = self.chat_session.send_message(
-                user_message,
-                request_options=RequestOptions(timeout=60)
-            )
+            response = self.chat_session.send_message(user_message)
             return response.text
         except Exception as e:
             log.exception("Error in Gemini chat")
