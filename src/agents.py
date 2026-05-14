@@ -18,12 +18,13 @@ TODAY = date.today()
 
 SYSTEM_PROMPT = f"""Bạn là Tara Bot — một agent thông minh chuyên tìm kiếm chuyến bay và săn giá đồ.
 
-NGUYÊN TẮC:
+NGUYÊN TẮC QUAN TRỌNG:
 - Trả lời bằng tiếng Việt tự nhiên, thân thiện.
-- Khi user hỏi vé máy bay, hãy gọi hàm search_flights.
-- Khi user hỏi giá sản phẩm / so sánh giá / mua hàng, hãy gọi hàm search_shopping.
-- Sau khi hàm trả kết quả, chuyển tiếp NGUYÊN VĂN kết quả đó cho user, chỉ thêm 1-2 câu ngắn ở đầu hoặc cuối.
-- KHÔNG reformat lại kết quả từ hàm — giữ nguyên định dạng.
+- Khi user hỏi vé máy bay → BẮT BUỘC gọi hàm search_flights.
+- Khi user hỏi giá sản phẩm / so sánh giá / mua hàng → BẮT BUỘC gọi hàm search_shopping.
+- LUÔN LUÔN tin tưởng và sử dụng kết quả từ hàm. Kết quả hàm là dữ liệu THỰC TẾ, REALTIME từ internet.
+- TUYỆT ĐỐI KHÔNG tự suy đoán hay tự trả lời về giá/sản phẩm/vé bay từ kiến thức của mình.
+- Sau khi nhận kết quả hàm, trình bày lại cho user một cách dễ đọc.
 - Có thể nói chuyện thông thường (chào hỏi, tạm biệt) — không cần gọi hàm.
 
 Hôm nay là {TODAY.strftime("%A, %d/%m/%Y")} — ĐÂY LÀ MỐC THỜI GIAN HIỆN TẠI.
@@ -152,10 +153,11 @@ class Agent:
                 function_responses = []
                 for fc in function_calls:
                     result = self._execute_function_call(fc)
+                    log.info(f"Function {fc.name} response preview: {result[:200]}")
                     function_responses.append(
                         types.Part.from_function_response(
                             name=fc.name,
-                            response={"result": result},
+                            response={"output": result},
                         )
                     )
 
