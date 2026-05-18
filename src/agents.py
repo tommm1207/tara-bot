@@ -40,9 +40,9 @@ class Agent:
             
         genai.configure(api_key=api_key)
         
-        # Use gemini-3-flash-preview - latest Gemini 3
+        # Use gemini-1.5-flash instead of gemini-3 to avoid 20-request daily rate limits
         self.model = genai.GenerativeModel(
-            model_name='gemini-3-flash-preview',
+            model_name='gemini-1.5-flash',
             tools=[search_flights, search_shopping],
             system_instruction=SYSTEM_PROMPT
         )
